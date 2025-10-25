@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Upload Seguro de Imagens</title>
+    <meta name="author" content="Onivaldo Miquelino">          
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style> 
+        body { font-family: ui-sans-serif, system-ui; } 
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen p-6 flex justify-center items-start">
+
+    <div class="w-full max-w-xl bg-white p-8 rounded-xl shadow-2xl mt-12">
+        <h1 class="text-3xl font-bold text-center text-indigo-700 mb-8">Upload Seguro de Imagem de Perfil</h1>
+        
+        <form id="uploadForm" class="space-y-6">
+            
+            <div>
+                <label for="profile_image" class="block text-sm font-medium text-gray-700 mb-2">Selecione uma Imagem (JPG, PNG, GIF - Máx. 2MB)</label>
+                <input type="file" id="profile_image" name="profile_image" accept="image/jpeg, image/png, image/gif" required
+                       class="block w-full text-sm text-gray-900 border border-gray-300 rounded-lg cursor-pointer bg-gray-50 p-2">
+            </div>
+
+            <button type="submit" id="submit-btn" disabled
+                    class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-lg transition disabled:bg-indigo-300">
+                Fazer Upload
+            </button>
+        </form>
+
+        <div id="feedback" class="mt-8 p-4 rounded-lg hidden"></div>
+        
+        <div class="mt-8 text-center">
+            <h2 class="text-xl font-semibold mb-3 text-gray-700">Prévia da Imagem (Upload)</h2>
+            <img id="image-preview" src="https://via.placeholder.com/150/EEEEEE/AAAAAA?text=Nenhuma+Imagem" 
+                 alt="Prévia da Imagem de Perfil" 
+                 class="w-40 h-40 mx-auto rounded-full object-cover border-4 border-indigo-500 shadow-lg">
+            <p id="image-path" class="text-xs mt-2 text-gray-500 break-all"></p>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = 'http://localhost:8001/src/upload_api.php';  
+        const uploadForm = document.getElementById('uploadForm');
+        const fileInput = document.getElementById('profile_image');
+        const submitBtn = document.getElementById('submit-btn');
+        const feedbackDiv = document.getElementById('feedback');
+        const imagePreview = document.getElementById('image-preview');
+        const imagePathDisplay = document.getElementById('image-path');
+        
+        fileInput.addEventListener('change', () => {
+            submitBtn.disabled = fileInput.files.length === 0;
+            if (fileInput.files && fileInput.files[0]) {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    imagePreview.src = e.target.result;
+                };
+                reader.readAsDataURL(fileInput.files[0]);
+            }
+        });
+
+        uploadForm.addEventListener('submit', async (event) => {
+            event.preventDefault();
+            
+            feedbackDiv.classList.add('hidden');
+            feedbackDiv.textContent = '';
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Enviando...';
+
+            if (fileInput.files.length === 0) {
+                 displayFeedback('Por favor, selecione um arquivo.', 'error');
+                 submitBtn.textContent = 'Fazer Upload';
+                 return;
+            }
+
+            const formData = new FormData(uploadForm);
+            
+            try {
+                const response = await fetch(API_URL, {
+                    method: 'POST',
+                    body: formData 
+                });
+
+                const result = await response.json();
+                
+                if (response.ok && result.success) {
+                    const message = result.data.message;
+                    
+                    // Verifica se a mensagem é de arquivo duplicado
+                    if (message.includes('já existente')) {
+                        displayFeedback(`⚠️ Arquivo Duplicado: ${message}`, 'warning');
+                    } else {
+                        displayFeedback(`✅ Sucesso! ${message}`, 'success');
+                    }
+                    
+                    imagePreview.src = result.data.url; 
+                    imagePathDisplay.textContent = `Path: ${result.data.url}`;
+                    
+                } else {
+                    const errorMessage = result.error || "Erro desconhecido.";
+                    displayFeedback(`❌ Falha no Upload: ${errorMessage}`, 'error');
+                }
+
+            } catch (error) {
+                displayFeedback('❌ Erro de rede ou comunicação com a API.', 'error');
+                console.error("Erro fatal:", error);
+            } finally {
+                submitBtn.textContent = 'Fazer Upload';
+                submitBtn.disabled = false; 
+            }
+        });
+
+        function displayFeedback(message, type) {
+            feedbackDiv.textContent = message;
+            feedbackDiv.classList.remove('hidden', 'bg-red-100', 'bg-green-100', 'text-red-700', 'text-green-700', 'bg-yellow-100', 'text-yellow-700');
+            
+            if (type === 'error') {
+                feedbackDiv.classList.add('bg-red-100', 'text-red-700');
+            } else if (type === 'success') {
+                feedbackDiv.classList.add('bg-green-100', 'text-green-700');
+            } else if (type === 'warning') {
+                // Novo estilo para a mensagem de duplicata
+                feedbackDiv.classList.add('bg-yellow-100', 'text-yellow-700');
+            }
+        }
+        
+        document.addEventListener('DOMContentLoaded', () => {
+             console.log("Lembre-se de criar o diretório /uploads/images/ e dar permissão de escrita!");
+        });
+    </script>
+</body>
+</html>
+    
